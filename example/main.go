@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/newbietao/goEventBus/event"
 )
@@ -10,12 +13,16 @@ import (
 type MyEvent struct {
 }
 
+// 事件前，可以做一些参数校验或者其他工作
 func (m MyEvent) BeferEvent(i interface{}) error {
 	log.Println("BeferEvent", i)
-	return nil
+	if _, ok := i.(string); ok {
+		return nil
+	}
+	return errors.New("name err")
 }
 func (m MyEvent) HandleEvent(i interface{}) error {
-	log.Println("HandleEvent", i)
+	log.Println("hello", i)
 	return nil
 }
 
@@ -29,7 +36,15 @@ func main() {
 	defer cancel()
 	e := event.GetEventBus(ctx)
 	myEvent := MyEvent{}
-	e.RegisterEvent("myEvent", myEvent)
-	e.TriggerEvent("myEvent", "test1")
-	e.TriggerEvent("myEvent", "test2")
+	e.RegisterEvent("sayHello", myEvent)
+	name := ""
+	for {
+		fmt.Println("pleace entry name:")
+		fmt.Scanf("%s", &name)
+		if name == "end" {
+			return
+		}
+		e.TriggerEvent("sayHello", name)
+		time.Sleep(2 * time.Second)
+	}
 }

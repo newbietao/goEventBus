@@ -28,6 +28,7 @@ type EventBus struct {
 }
 
 // var chanSize = 0
+
 var chanSize = 100
 var poolSize = 100
 
@@ -40,11 +41,11 @@ func GetEventBus(ctx context.Context) *EventBus {
 		ctx:         eCtx,
 		cancel:      eCancle,
 	}
-	go e.listenEvent(eCtx)
+	go e.listenEvent()
 	return e
 }
 
-func (e *EventBus) listenEvent(ctx context.Context) {
+func (e *EventBus) listenEvent() {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("listenEvent panic")
@@ -63,7 +64,7 @@ func (e *EventBus) listenEvent(ctx context.Context) {
 			if err != nil {
 				log.Printf("listenEvent-> %s \n", err)
 			}
-		case <-ctx.Done():
+		case <-e.ctx.Done():
 			log.Printf("listenEvent-> %s \n", "Done")
 			return
 		}
@@ -107,6 +108,17 @@ func (e *EventBus) pushEventBus(name string, param interface{}) {
 			return
 		}
 	}
+}
+
+// 注销event bus
+func (e *EventBus) DestoryEventBus() {
+	e.cancel()
+	e.isLive = false
+	close(e.busChan)
+	for k, _ := range e.eventByName {
+		delete(e.eventByName, k)
+	}
+	e.eventByName = nil
 }
 
 // 注册事件，提供事件名和回调函数

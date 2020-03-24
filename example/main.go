@@ -37,6 +37,7 @@ func main() {
 	defer cancel()
 
 	e := event.GetEventBus(ctx)
+	defer e.DestoryEventBus()
 
 	myEvent := MyEvent{}
 	e.RegisterEvent("sayHello", myEvent)

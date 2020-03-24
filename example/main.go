@@ -35,9 +35,12 @@ func (m MyEvent) AfterEvent(i interface{}) error {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	e := event.GetEventBus(ctx)
+
 	myEvent := MyEvent{}
 	e.RegisterEvent("sayHello", myEvent)
+
 	name := ""
 	for {
 		fmt.Println("pleace entry name:")

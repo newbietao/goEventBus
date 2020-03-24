@@ -22,6 +22,7 @@ type EventData struct {
 type EventBus struct {
 	eventByName map[string][]EventHandle
 	busChan     chan EventData
+	isLive      bool
 }
 
 var chanSize = 100
@@ -31,6 +32,7 @@ func GetEventBus(ctx context.Context) *EventBus {
 	e := &EventBus{
 		eventByName: make(map[string][]EventHandle),
 		busChan:     make(chan EventData, chanSize),
+		isLive: true
 	}
 	go e.listenEvent(ctx)
 	return e
@@ -41,6 +43,7 @@ func (e *EventBus) listenEvent(ctx context.Context) {
 		if err := recover(); err != nil {
 			log.Println("receiveMessage panic")
 		}
+		e.isLive = false
 	}()
 
 	p, _ := ants.NewPoolWithFunc(int(poolSize), e.dispatchEvent)
@@ -92,7 +95,10 @@ func (e *EventBus) pushEventBus(name string, param interface{}) {
 }
 
 // 注册事件，提供事件名和回调函数
-func (e *EventBus) RegisterEvent(name string, event EventHandle) {
+func (e *EventBus) RegisterEvent(name string, event EventHandle) (err error) {
+	if !e.isLive {
+		return errors.New("event bus not live")
+	}
 	if _, ok := e.eventByName[name]; ok {
 		e.eventByName[name] = append(e.eventByName[name], event)
 	} else {
@@ -102,6 +108,9 @@ func (e *EventBus) RegisterEvent(name string, event EventHandle) {
 
 // 触发事件
 func (e *EventBus) TriggerEvent(name string, param interface{}) (err error) {
+	if !e.isLive {
+		return errors.New("event bus not live")
+	}
 	if _, ok := e.eventByName[name]; !ok {
 		return errors.New("event name not existence")
 	}

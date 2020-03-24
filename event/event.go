@@ -104,6 +104,7 @@ func (e *EventBus) RegisterEvent(name string, event EventHandle) (err error) {
 	} else {
 		e.eventByName[name] = []EventHandle{event}
 	}
+	return nil
 }
 
 // 触发事件

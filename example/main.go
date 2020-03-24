@@ -40,6 +40,8 @@ func main() {
 
 	myEvent := MyEvent{}
 	e.RegisterEvent("sayHello", myEvent)
+	// 为一个事件添加多个事件处理函数
+	e.RegisterEvent("sayHello", myEvent)
 
 	name := ""
 	for {

@@ -32,7 +32,7 @@ func GetEventBus(ctx context.Context) *EventBus {
 	e := &EventBus{
 		eventByName: make(map[string][]EventHandle),
 		busChan:     make(chan EventData, chanSize),
-		isLive: true
+		isLive:      true,
 	}
 	go e.listenEvent(ctx)
 	return e

@@ -23,18 +23,23 @@ type EventBus struct {
 	eventByName map[string][]EventHandle
 	busChan     chan EventData
 	isLive      bool
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 var chanSize = 100
 var poolSize = 100
 
 func GetEventBus(ctx context.Context) *EventBus {
+	eCtx, eCancle := context.WithCancel(ctx)
 	e := &EventBus{
 		eventByName: make(map[string][]EventHandle),
 		busChan:     make(chan EventData, chanSize),
 		isLive:      true,
+		ctx:         eCtx,
+		cancel:      eCancle,
 	}
-	go e.listenEvent(ctx)
+	go e.listenEvent(eCtx)
 	return e
 }
 
@@ -44,6 +49,7 @@ func (e *EventBus) listenEvent(ctx context.Context) {
 			log.Println("listenEvent panic")
 		}
 		e.isLive = false
+		e.cancel()
 	}()
 
 	p, _ := ants.NewPoolWithFunc(int(poolSize), e.dispatchEvent)
@@ -91,7 +97,14 @@ func (e *EventBus) pushEventBus(name string, param interface{}) {
 		Name:  name,
 		Param: param,
 	}
-	e.busChan <- event
+	for {
+		select {
+		case e.busChan <- event:
+			return
+		case <-e.ctx.Done():
+			return
+		}
+	}
 }
 
 // 注册事件，提供事件名和回调函数

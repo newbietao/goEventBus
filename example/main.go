@@ -10,6 +10,7 @@ import (
 	"github.com/newbietao/goEventBus/event"
 )
 
+// 实现event.EventHandle
 type MyEvent struct {
 }
 

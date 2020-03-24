@@ -49,8 +49,12 @@ func main() {
 		fmt.Scanf("%s", &name)
 		if name == "end" {
 			return
+		} else if name == "cancle" {
+			cancel()
+		} else {
+			e.TriggerEvent("sayHello", name)
 		}
-		e.TriggerEvent("sayHello", name)
+
 		time.Sleep(2 * time.Second)
 	}
 }

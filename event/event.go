@@ -27,6 +27,7 @@ type EventBus struct {
 	cancel      context.CancelFunc
 }
 
+// var chanSize = 0
 var chanSize = 100
 var poolSize = 100
 
@@ -102,6 +103,7 @@ func (e *EventBus) pushEventBus(name string, param interface{}) {
 		case e.busChan <- event:
 			return
 		case <-e.ctx.Done():
+			log.Printf("pushEventBus %v \n", "done")
 			return
 		}
 	}
@@ -110,7 +112,9 @@ func (e *EventBus) pushEventBus(name string, param interface{}) {
 // 注册事件，提供事件名和回调函数
 func (e *EventBus) RegisterEvent(name string, event EventHandle) (err error) {
 	if !e.isLive {
-		return errors.New("event bus not live")
+		err = errors.New("event bus not live")
+		log.Printf("RegisterEvent err: %v \n", err)
+		return
 	}
 	if _, ok := e.eventByName[name]; ok {
 		e.eventByName[name] = append(e.eventByName[name], event)
@@ -124,16 +128,21 @@ func (e *EventBus) RegisterEvent(name string, event EventHandle) (err error) {
 func (e *EventBus) TriggerEvent(name string, param interface{}) (err error) {
 	// 检查event bus是否存活
 	if !e.isLive {
-		return errors.New("event bus not live")
+		err = errors.New("event bus not live")
+		log.Printf("TriggerEvent err: %v \n", err)
+		return
 	}
 	// 检查事件是否注册过
 	if _, ok := e.eventByName[name]; !ok {
-		return errors.New("event name not existence")
+		err = errors.New("event name not existence")
+		log.Printf("TriggerEvent err: %v \n", err)
+		return
 	}
 	// 同步执行所有BeferEvent钩子函数，有可能涉及到参数校验、初始化等，所以要同步执行
 	for _, event := range e.eventByName[name] {
 		err := event.BeferEvent(param)
 		if err != nil {
+			log.Printf("TriggerEvent err: %v \n", err)
 			return err
 		}
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -33,10 +32,8 @@ func (m MyEvent) AfterEvent(i interface{}) error {
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	e := event.GetEventBus(ctx)
+	e := event.GetEventBus()
 	defer e.DestoryEventBus()
 
 	myEvent := MyEvent{}
@@ -51,7 +48,7 @@ func main() {
 		if name == "end" {
 			return
 		} else if name == "cancle" {
-			cancel()
+			e.DestoryEventBus()
 		} else {
 			e.TriggerEvent("sayHello", name)
 		}

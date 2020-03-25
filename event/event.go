@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 
 	"github.com/panjf2000/ants"
 )
@@ -31,9 +32,10 @@ type EventBus struct {
 
 var chanSize = 100
 var poolSize = 100
+var once = sync.Once{}
 
-func GetEventBus(ctx context.Context) *EventBus {
-	eCtx, eCancle := context.WithCancel(ctx)
+func GetEventBus() *EventBus {
+	eCtx, eCancle := context.WithCancel(context.Background())
 	e := &EventBus{
 		eventByName: make(map[string][]EventHandle),
 		busChan:     make(chan EventData, chanSize),
@@ -51,7 +53,7 @@ func (e *EventBus) listenEvent() {
 			log.Println("listenEvent panic")
 		}
 		e.isLive = false
-		e.cancel()
+		e.DestoryEventBus()
 	}()
 
 	p, _ := ants.NewPoolWithFunc(int(poolSize), e.dispatchEvent)
@@ -110,8 +112,7 @@ func (e *EventBus) pushEventBus(name string, param interface{}) {
 	}
 }
 
-// 注销event bus
-func (e *EventBus) DestoryEventBus() {
+func (e *EventBus) doDestory() {
 	e.cancel()
 	e.isLive = false
 	close(e.busChan)
@@ -119,6 +120,11 @@ func (e *EventBus) DestoryEventBus() {
 		delete(e.eventByName, k)
 	}
 	e.eventByName = nil
+}
+
+// 注销event bus
+func (e *EventBus) DestoryEventBus() {
+	once.Do(e.doDestory)
 }
 
 // 注册事件，提供事件名和回调函数

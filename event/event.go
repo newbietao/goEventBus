@@ -52,7 +52,6 @@ func (e *EventBus) listenEvent() {
 		if err := recover(); err != nil {
 			log.Println("listenEvent panic")
 		}
-		e.isLive = false
 		e.DestoryEventBus()
 	}()
 

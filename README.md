@@ -1,9 +1,9 @@
 # goEventBus
 
 event bus for Go's
-. High performance
-. asynchronous
-. non blocking
++ High performance
++ asynchronous
++ non blocking
 
 # Getting started
 
@@ -24,19 +24,36 @@ import (
 # Usage
 
 ```
-p, err := pool.New("127.0.0.1:8080", pool.DefaultOptions)
-if err != nil {
-    log.Fatalf("failed to new pool: %v", err)
+// 实现event.EventHandle
+type MyEvent struct {
 }
-defer p.Close()
 
-conn, err := p.Get()
-if err != nil {
-    log.Fatalf("failed to get conn: %v", err)
+// 事件前，可以做一些参数校验或者其他工作
+func (m MyEvent) BeferEvent(i interface{}) error {
+	log.Println("BeferEvent", i)
+	if _, ok := i.(string); ok {
+		return nil
+	}
+	return errors.New("name err")
 }
-defer conn.Close()
+func (m MyEvent) HandleEvent(i interface{}) error {
+	log.Println("hello", i)
+	return nil
+}
 
-// cc := conn.Value()
-// client := pb.NewClient(conn.Value())
+func (m MyEvent) AfterEvent(i interface{}) error {
+	log.Println("AfterEvent", i)
+	return nil
+}
+
+func main() {
+
+	e := event.GetEventBus()
+	defer e.DestoryEventBus()
+
+	myEvent := MyEvent{}
+	e.RegisterEvent("sayHello", myEvent)
+	e.TriggerEvent("sayHello", name)
+}
 ```
-See the complete example: [https://github.com/shimingyah/pool/tree/master/example](https://github.com/shimingyah/pool/tree/master/example)
+See the complete example: [https://github.com/newbietao/goEventBus/tree/master/example](https://github.com/newbietao/goEventBus/tree/master/example)

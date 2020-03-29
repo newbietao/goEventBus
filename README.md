@@ -53,7 +53,7 @@ func main() {
 
 	myEvent := MyEvent{}
 	e.RegisterEvent("sayHello", myEvent)
-	e.TriggerEvent("sayHello", name)
+	e.TriggerEvent("sayHello", "tom")
 }
 ```
 See the complete example: [https://github.com/newbietao/goEventBus/tree/master/example](https://github.com/newbietao/goEventBus/tree/master/example)

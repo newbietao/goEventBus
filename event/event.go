@@ -5,27 +5,23 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/panjf2000/ants"
 )
 
-type EventHandle interface {
-	BeferEvent(i interface{}) error
-	HandleEvent(i interface{}) error
-	AfterEvent(i interface{}) error
-}
+type EventHandle func(data interface{}) error
+type EventName = string
 
 type EventData struct {
 	Name  string
 	Param interface{}
 }
-
 type EventBus struct {
-	eventByName map[string][]EventHandle
-	busChan     chan EventData
-	isLive      bool
-	ctx         context.Context
-	cancel      context.CancelFunc
+	eventHandles map[EventName][]EventHandle
+	busChan      chan interface{}
+	isLive       bool
+	cancel       context.CancelFunc
 }
 
 // var chanSize = 0
@@ -37,17 +33,16 @@ var once = sync.Once{}
 func GetEventBus() *EventBus {
 	eCtx, eCancle := context.WithCancel(context.Background())
 	e := &EventBus{
-		eventByName: make(map[string][]EventHandle),
-		busChan:     make(chan EventData, chanSize),
-		isLive:      true,
-		ctx:         eCtx,
-		cancel:      eCancle,
+		eventHandles: make(map[string][]EventHandle),
+		busChan:      make(chan interface{}, chanSize),
+		isLive:       true,
+		cancel:       eCancle,
 	}
-	go e.listenEvent()
+	go e.listenEvent(eCtx)
 	return e
 }
 
-func (e *EventBus) listenEvent() {
+func (e *EventBus) listenEvent(ctx context.Context) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("listenEvent panic")
@@ -65,7 +60,7 @@ func (e *EventBus) listenEvent() {
 			if err != nil {
 				log.Printf("listenEvent-> %s \n", err)
 			}
-		case <-e.ctx.Done():
+		case <-ctx.Done():
 			log.Printf("listenEvent-> %s \n", "Done")
 			return
 		}
@@ -74,23 +69,23 @@ func (e *EventBus) listenEvent() {
 
 func (e *EventBus) dispatchEvent(eve interface{}) {
 	if en, ok := eve.(EventData); ok {
-		if _, ok := e.eventByName[en.Name]; !ok {
+		if _, ok := e.eventHandles[en.Name]; !ok {
 			err := errors.New("event name not existence")
 			log.Printf("dispatchEvent err %v \n", err)
 			return
 		}
-		for _, event := range e.eventByName[en.Name] {
-			err := event.HandleEvent(en.Param)
-			if err != nil {
-				log.Printf("dispatchEvent err %v \n", err)
-				return
-			}
-			err = event.AfterEvent(en.Param)
-			if err != nil {
-				log.Printf("dispatchEvent err %v \n", err)
-				return
-			}
+		var wg sync.WaitGroup
+		for _, eventHandle := range e.eventHandles[en.Name] {
+			wg.Add(1)
+			go func(eventHandle EventHandle) {
+				defer wg.Done()
+				err := eventHandle(en.Param)
+				if err != nil {
+					log.Printf("eventHandle err %v \n", err)
+				}
+			}(eventHandle)
 		}
+		wg.Wait()
 	}
 }
 
@@ -100,11 +95,12 @@ func (e *EventBus) pushEventBus(name string, param interface{}) {
 		Name:  name,
 		Param: param,
 	}
+	timer := time.NewTimer(30 * time.Second)
 	for {
 		select {
 		case e.busChan <- event:
 			return
-		case <-e.ctx.Done():
+		case <-timer.C:
 			log.Printf("pushEventBus %v \n", "done")
 			return
 		}
@@ -115,10 +111,10 @@ func (e *EventBus) doDestory() {
 	e.cancel()
 	e.isLive = false
 	close(e.busChan)
-	for k, _ := range e.eventByName {
-		delete(e.eventByName, k)
+	for k, _ := range e.eventHandles {
+		delete(e.eventHandles, k)
 	}
-	e.eventByName = nil
+	e.eventHandles = nil
 }
 
 // 注销event bus
@@ -133,10 +129,10 @@ func (e *EventBus) RegisterEvent(name string, event EventHandle) (err error) {
 		log.Printf("RegisterEvent err: %v \n", err)
 		return
 	}
-	if _, ok := e.eventByName[name]; ok {
-		e.eventByName[name] = append(e.eventByName[name], event)
+	if _, ok := e.eventHandles[name]; ok {
+		e.eventHandles[name] = append(e.eventHandles[name], event)
 	} else {
-		e.eventByName[name] = []EventHandle{event}
+		e.eventHandles[name] = []EventHandle{event}
 	}
 	return nil
 }
@@ -150,18 +146,10 @@ func (e *EventBus) TriggerEvent(name string, param interface{}) (err error) {
 		return
 	}
 	// 检查事件是否注册过
-	if _, ok := e.eventByName[name]; !ok {
+	if _, ok := e.eventHandles[name]; !ok {
 		err = errors.New("event name not existence")
 		log.Printf("TriggerEvent err: %v \n", err)
 		return
-	}
-	// 同步执行所有BeferEvent钩子函数，有可能涉及到参数校验、初始化等，所以要同步执行
-	for _, event := range e.eventByName[name] {
-		err := event.BeferEvent(param)
-		if err != nil {
-			log.Printf("TriggerEvent err: %v \n", err)
-			return err
-		}
 	}
 
 	// 将事件发送到bus
